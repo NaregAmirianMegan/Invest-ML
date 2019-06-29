@@ -1,4 +1,7 @@
-API_KEY = 'KFZZGBWJYK9CO3PU'
+import os
+
+### Set environment variable: echo ALPHA_VANTAGE_API_KEY=API_KEY
+API_KEY = os.environ['ALPHA_VANTAGE_API_KEY']
 
 from alpha_vantage.techindicators import TechIndicators
 import matplotlib.pyplot as plt
