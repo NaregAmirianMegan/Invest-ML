@@ -34,16 +34,22 @@ class ANN():
 			if verbose:
 				if step % (self.hparams['training_steps']/1000):
 					print("Loss:", step_loss)
-					print(self.eval(batch_x, sess))
+					print(self.predict(batch_x, sess))
 
-	def eval(self, x_data, sess):
+	def predict(self, x_data, sess):
 		return sess.run(self.output_layer, feed_dict={self.x: x_data})
+
+	def eval(self, ):
+
+class RNN():
+	def __init__(self, hparams):
+		
 
 if __name__ == '__main__':
 	x_data = np.array([[0, 0], [1, 0], [0, 1], [1, 1]], dtype='float32')
 	y_data = np.array([[0], [1], [1], [0]], dtype='float32')
 
-	hparams = {'n_input': 2, 'n_h1': 3, 'n_h2': 2, 'n_output': 1, 'lr': 0.00001, 'training_steps': 100000}
+	hparams = {'n_input': 2, 'n_h1': 10, 'n_h2': 5, 'n_output': 1, 'lr': 0.0001, 'training_steps': 10000}
 	ann = ANN(hparams)
 
 	with tf.Session() as sess:

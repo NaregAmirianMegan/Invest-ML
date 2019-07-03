@@ -17,28 +17,28 @@
 import tensorflow as tf 
 import numpy as np
 
-inputs = np.array([[0, 0], [1, 0], [0, 1], [1, 1]], dtype='float32')
-outputs = np.array([[0], [1], [1], [0]], dtype='float32')
+# inputs = np.array([[0, 0], [1, 0], [0, 1], [1, 1]], dtype='float32')
+# outputs = np.array([[0], [1], [1], [0]], dtype='float32')
 
-x = tf.placeholder(tf.float32, shape=(None, 2), name="x")
-y = tf.placeholder(tf.float32, shape=None, name="y")
+# x = tf.placeholder(tf.float32, shape=(None, 2), name="x")
+# y = tf.placeholder(tf.float32, shape=None, name="y")
 
-### hparams
-n_h1 = 3
-n_h2 = 2
-n_output = 1
+# ### hparams
+# n_h1 = 3
+# n_h2 = 2
+# n_output = 1
 
-training_steps = 100000
+# training_steps = 100000
 
-### mid level implementation ###
-l1 = tf.layers.dense(x, n_h1, activation=tf.nn.relu)
-l2 = tf.layers.dense(l1, n_h2, activation=tf.nn.relu)
-out_l = tf.layers.dense(l2, n_output)
+# ### mid level implementation ###
+# l1 = tf.layers.dense(x, n_h1, activation=tf.nn.relu)
+# l2 = tf.layers.dense(l1, n_h2, activation=tf.nn.relu)
+# out_l = tf.layers.dense(l2, n_output)
 
-mse = tf.losses.mean_squared_error(outputs, out_l)
-loss = tf.reduce_mean(mse)
-optimizer = tf.train.AdamOptimizer(learning_rate=0.0001)
-training_op = optimizer.minimize(loss)
+# mse = tf.losses.mean_squared_error(outputs, out_l)
+# loss = tf.reduce_mean(mse)
+# optimizer = tf.train.AdamOptimizer(learning_rate=0.0001)
+# training_op = optimizer.minimize(loss)
 ### mid level (end) ###
 
 ### Low level implementation ###
@@ -63,10 +63,14 @@ training_op = optimizer.minimize(loss)
 
 ### Low level (end) ###
 
-with tf.Session() as sess:
-	sess.run(tf.global_variables_initializer())
-	for step in range(training_steps):
-		_, curr_loss = sess.run([training_op, loss], feed_dict={x: inputs, y: outputs})
-		if step % 1000 == 0:
-			print("Predictions:", np.round(sess.run(out_l, feed_dict={x: inputs}), decimals=0))
-			print("Loss:", curr_loss)
+# with tf.Session() as sess:
+# 	sess.run(tf.global_variables_initializer())
+# 	for step in range(training_steps):
+# 		_, curr_loss = sess.run([training_op, loss], feed_dict={x: inputs, y: outputs})
+# 		if step % 1000 == 0:
+# 			print("Predictions:", np.round(sess.run(out_l, feed_dict={x: inputs}), decimals=0))
+# 			print("Loss:", curr_loss)
+
+
+### Reccurrent net Begin ###
+
