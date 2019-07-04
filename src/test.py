@@ -74,3 +74,21 @@ import numpy as np
 
 ### Reccurrent net Begin ###
 
+def generate_training_data(data_points, seq_length):
+	x_data = []
+	y_data = []
+	for _ in range(data_points):
+		x_point = np.random.random((seq_length))
+		x_data.append(x_point)
+		y_data.append(np.sum(x_point))
+	return np.array(x_data), np.array(y_data)
+
+X, Y = generate_training_data(1000, 5)
+
+n_input = 4
+n_hidden = 20
+
+
+
+x = tf.placeholder(tf.float32, [None, ])
+
