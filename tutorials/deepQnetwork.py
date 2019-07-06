@@ -1,31 +1,4 @@
-# import os
-
-# ### Set environment variable: echo ALPHA_VANTAGE_API_KEY=API_KEY
-# API_KEY = os.environ['ALPHA_VANTAGE_API_KEY']
-
-# ### alpha_vantage imports
-# from alpha_vantage.techindicators import TechIndicators
-# import matplotlib.pyplot as plt
-
-# ti = TechIndicators(key=API_KEY, output_format='pandas')
-# data, meta_data = ti.get_bbands(symbol='MSFT', interval='60min', time_period=60)
-# data.plot()
-# plt.title('BBbands indicator for  MSFT stock (60 min)')
-# plt.show()
-
-
 import gym, random
-# env = gym.make('MountainCar-v0')
-# env.reset()
-# for _ in range(500):
-#     env.render()
-#     action = env.action_space.sample()
-#     obs, reward, done, info = env.step(action) # take a random action
-#     if _%100 == 0:
-#     	print("actions:", env.env.action_space.n)
-#     	print("states:", env.env.observation_space.shape[0])
-# env.close()
-
 import tensorflow as tf
 import numpy as np
 
