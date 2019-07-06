@@ -39,11 +39,6 @@ class ANN():
 	def predict(self, x_data, sess):
 		return sess.run(self.output_layer, feed_dict={self.x: x_data})
 
-	def eval(self, ):
-
-class RNN():
-	def __init__(self, hparams):
-		
 
 if __name__ == '__main__':
 	x_data = np.array([[0, 0], [1, 0], [0, 1], [1, 1]], dtype='float32')
