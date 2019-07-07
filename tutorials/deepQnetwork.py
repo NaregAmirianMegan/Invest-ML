@@ -2,8 +2,6 @@ import gym, random
 import tensorflow as tf
 import numpy as np
 
-
-
 class CircularBuffer:
 	def __init__(self, size):
 		self.data = [None] * size
@@ -61,6 +59,7 @@ class DQN:
 
 			return x, y, output_layer, loss, training_op
 
+	# TODO: verify
 	def update_target_model(self, sess):
 		update_weights = [tf.assign(new, old) for (new, old) in zip(tf.trainable_variables('q-model'), tf.trainable_variables('target-model'))]
 		sess.run([update_weights])
@@ -103,8 +102,10 @@ class DQN:
 		_, curr_loss = sess.run([self.training_op, self.loss], feed_dict={self.x: x_batch, self.y: y_batch})
 		return curr_loss
 
-	def train(self, episodes, max_episode_length, sess, env):
+	def train(self, episodes, max_episode_length, sess, env, render_game=False):
 		max_reward = 0
+		avg_reward = 0
+		rewards = []
 
 		for game in range(episodes):
 
@@ -114,7 +115,8 @@ class DQN:
 			state = env.step(env.action_space.sample())[0]
 
 			for step in range(max_episode_length):
-				env.render()
+				if render_game:
+					env.render()
 				if np.random.random() < self.epsilon:
 					action = env.action_space.sample()
 				else:
@@ -133,15 +135,38 @@ class DQN:
 
 			self.update_target_model(sess)
 
+			rewards.append(total_reward)
+			avg_reward = sum(rewards)/len(rewards)
 			if total_reward > max_reward:
 					max_reward = total_reward
 
 			if game%50 == 0:
 					print("=======================")
-					print("Loss:", curr_loss, "Max Reward:", max_reward, "Epsilon", dqn.epsilon)
+					print("Loss:", curr_loss, "Max Reward:", max_reward, "Avg. R:", avg_reward, "Epsilon", dqn.epsilon)
+
+		games = 10
+		avg_score = self.eval(games, 1000, env)
+		print("Model got an avg score of", avg_score, "over", games, "games.")
 		    
 		env.close()
 
+	def eval(self, games, max_game_length, env):
+		overall_reward = 0
+		for game in range(games):
+			env.reset()
+			total_reward = 0
+			state = env.step(env.action_space.sample())[0]
+
+			for step in range(max_game_length):
+				action = self.get_action(state, sess).item()
+				new_state, reward, done, info = env.step(action)
+				total_reward += reward
+
+				if done:
+					break
+				state = new_state
+			overall_reward += total_reward
+		return overall_reward/games
 
 if __name__ == '__main__':
 
@@ -150,10 +175,10 @@ if __name__ == '__main__':
 	num_states = env.env.observation_space.shape[0]
 	num_actions = env.env.action_space.n
 
-	hparams = {'n_state_nodes': num_states, 'n_actions': num_actions, 'n_h1': 90, 'n_h2': 30, 'n_h3': 10, 'lr': 0.001, 'discount_rate': 0.85, 'epsilon': 1, 'e_decay': 0.999995, 'e_baseline': 0.1, 'batch_size': 32}
+	hparams = {'n_state_nodes': num_states, 'n_actions': num_actions, 'n_h1': 90, 'n_h2': 30, 'n_h3': 10, 'lr': 0.0001, 'discount_rate': 0.85, 'epsilon': 1, 'e_decay': 0.999995, 'e_baseline': 0.1, 'batch_size': 32}
 
 	dqn = DQN(hparams)
 	with tf.Session() as sess:
 		sess.run(tf.global_variables_initializer())
-		dqn.train(2000, 5000, sess, env)
+		dqn.train(6000, 5000, sess, env)
 		
