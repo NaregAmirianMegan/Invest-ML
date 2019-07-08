@@ -49,9 +49,9 @@ class DQN:
 
 			hidden_layer_1 = tf.layers.dense(x, hparams['n_h1'], activation=tf.nn.relu)
 			hidden_layer_2 = tf.layers.dense(hidden_layer_1, hparams['n_h2'], activation=tf.nn.relu)
-			hidden_layer_3 = tf.layers.dense(hidden_layer_2, hparams['n_h3'], activation=tf.nn.relu)
-			hidden_layer_4 = tf.layers.dense(hidden_layer_3, hparams['n_h4'], activation=tf.nn.relu)
-			output_layer = tf.layers.dense(hidden_layer_3, hparams['n_actions'])
+			# hidden_layer_3 = tf.layers.dense(hidden_layer_2, hparams['n_h3'], activation=tf.nn.relu)
+			# hidden_layer_4 = tf.layers.dense(hidden_layer_3, hparams['n_h4'], activation=tf.nn.relu)
+			output_layer = tf.layers.dense(hidden_layer_2, hparams['n_actions'])
 
 			mse = tf.losses.mean_squared_error(y, output_layer)
 			loss = tf.reduce_mean(mse)
@@ -124,7 +124,7 @@ class DQN:
 				else:
 					action = self.get_action(state, sess).item()
 				new_state, reward, done, info = env.step(action)
-				reward = reward if not done else -reward
+				#reward = reward if not done else -reward
 				total_reward += reward
 				self.memory.append((state, action, reward, new_state, done))
 
@@ -181,7 +181,7 @@ if __name__ == '__main__':
 	num_states = env.env.observation_space.shape[0]
 	num_actions = env.env.action_space.n
 
-	hparams = {'n_state_nodes': num_states, 'n_actions': num_actions, 'n_h1': 24, 'n_h2': 24, 'n_h3': 10, 'n_h4': 5, 'lr': 0.001, 'discount_rate': 0.95, 'epsilon': 1, 'e_decay': 0.999955, 'e_baseline': 0.01, 'batch_size': 32}
+	hparams = {'n_state_nodes': num_states, 'n_actions': num_actions, 'n_h1': 150, 'n_h2': 120, 'n_h3': 10, 'n_h4': 5, 'lr': 0.001, 'discount_rate': 0.99, 'epsilon': 1, 'e_decay': 0.9996, 'e_baseline': 0.01, 'batch_size': 32}
 
 	dqn = DQN(hparams)
 	with tf.Session() as sess:
