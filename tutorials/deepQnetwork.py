@@ -35,7 +35,7 @@ class DQN:
 		self.e_decay = hparams['e_decay']
 		self.e_baseline = hparams['e_baseline']
 
-		self.memory = CircularBuffer(25000)
+		self.memory = CircularBuffer(1000000)
 
 		self.batch_size = hparams['batch_size']
 
@@ -50,6 +50,7 @@ class DQN:
 			hidden_layer_1 = tf.layers.dense(x, hparams['n_h1'], activation=tf.nn.relu)
 			hidden_layer_2 = tf.layers.dense(hidden_layer_1, hparams['n_h2'], activation=tf.nn.relu)
 			hidden_layer_3 = tf.layers.dense(hidden_layer_2, hparams['n_h3'], activation=tf.nn.relu)
+			hidden_layer_4 = tf.layers.dense(hidden_layer_3, hparams['n_h4'], activation=tf.nn.relu)
 			output_layer = tf.layers.dense(hidden_layer_3, hparams['n_actions'])
 
 			mse = tf.losses.mean_squared_error(y, output_layer)
@@ -69,7 +70,7 @@ class DQN:
 
 	# Use target network for predictions
 	def predict_batch(self, states, sess):
-		return sess.run([self.output_layer_target], feed_dict={self.x_target: states})
+		return sess.run([self.output_layer], feed_dict={self.x: states})
 
 	def get_action(self, state, sess):
 		return np.argmax(self.predict(state, sess))
@@ -87,9 +88,9 @@ class DQN:
 		x_batch = np.zeros((self.batch_size, self.hparams['n_state_nodes']))
 		y_batch = np.zeros((self.batch_size, self.hparams['n_actions']))
 		for i, e in enumerate(batch):
-			state, action, reward, new_state = e[0], e[1], e[2], e[3]
+			state, action, reward, new_state, done = e[0], e[1], e[2], e[3], e[4]
 			current_q = q_vals[i]
-			if new_state is None:
+			if done:
 				current_q[action] = reward
 			else:
 				current_q[action] = reward + self.discount_rate*np.amax(new_s_q_vals[i])
@@ -105,6 +106,7 @@ class DQN:
 	def train(self, episodes, max_episode_length, sess, env, render_game=False):
 		max_reward = 0
 		avg_reward = 0
+		m_avg_reward = []
 		rewards = []
 
 		for game in range(episodes):
@@ -122,6 +124,7 @@ class DQN:
 				else:
 					action = self.get_action(state, sess).item()
 				new_state, reward, done, info = env.step(action)
+				reward = reward if not done else -reward
 				total_reward += reward
 				self.memory.append((state, action, reward, new_state, done))
 
@@ -133,16 +136,19 @@ class DQN:
 				state = new_state
 				self.epsilon = max(self.epsilon * self.e_decay, self.e_baseline)
 
-			self.update_target_model(sess)
+			#self.update_target_model(sess)
 
 			rewards.append(total_reward)
+			m_avg_reward.append(total_reward)
 			avg_reward = sum(rewards)/len(rewards)
 			if total_reward > max_reward:
 					max_reward = total_reward
 
 			if game%50 == 0:
 					print("=======================")
-					print("Loss:", curr_loss, "Max Reward:", max_reward, "Avg. R:", avg_reward, "Epsilon", dqn.epsilon)
+					print("GAME", game)
+					print("Loss:", curr_loss, "M Avg. R:", sum(m_avg_reward)/len(m_avg_reward), "Max Reward:", max_reward, "Avg. R:", avg_reward, "Epsilon:", dqn.epsilon)
+					m_avg_reward = []
 
 		games = 10
 		avg_score = self.eval(games, 1000, env)
@@ -175,10 +181,10 @@ if __name__ == '__main__':
 	num_states = env.env.observation_space.shape[0]
 	num_actions = env.env.action_space.n
 
-	hparams = {'n_state_nodes': num_states, 'n_actions': num_actions, 'n_h1': 90, 'n_h2': 30, 'n_h3': 10, 'lr': 0.0001, 'discount_rate': 0.85, 'epsilon': 1, 'e_decay': 0.999995, 'e_baseline': 0.1, 'batch_size': 32}
+	hparams = {'n_state_nodes': num_states, 'n_actions': num_actions, 'n_h1': 24, 'n_h2': 24, 'n_h3': 10, 'n_h4': 5, 'lr': 0.001, 'discount_rate': 0.95, 'epsilon': 1, 'e_decay': 0.999955, 'e_baseline': 0.01, 'batch_size': 32}
 
 	dqn = DQN(hparams)
 	with tf.Session() as sess:
 		sess.run(tf.global_variables_initializer())
-		dqn.train(6000, 5000, sess, env)
+		dqn.train(5000, 5000, sess, env, render_game=True)
 		
