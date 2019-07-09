@@ -31,7 +31,7 @@ class PolicyAgent:
 	def __init__(self, hparams):
 		self.hparams = hparams
 		self.memory = CircularBuffer(20000)
-		self.build_model(hparams)
+		self.x, self.y, self.output_layer, self.loss, self.training_op = self.build_model(hparams)
 
 	def build_model(self, hparams):
 		x = tf.placeholder(tf.float32, [None, hparams['states']])
@@ -40,10 +40,17 @@ class PolicyAgent:
 		h1 = tf.layers.dense(x, hparams['n_h1'], activation=tf.nn.relu)
 		h2 = tf.layers.dense(h1, hparams['n_h2'], activation=tf.nn.relu)
 		h3 = tf.layers.dense(h2, hparams['n_h3'], activation=tf.nn.relu)
-		out = tf.layers.dense(h3, hparams['actions'])
+		out = tf.layers.dense(h3, hparams['actions'], activation=tf.nn.softmax)
 
-	def get_action(self, state):
+		mse = tf.losses.mean_squared_error(y, output_layer)
+		loss = tf.reduce_mean(tf.losses.softmax_cross_entropy_with_logits())
+		optimizer = tf.train.AdamOptimizer(learning_rate=hparams['lr'])
+		training_op = optimizer.minimize(loss)
 
+		return x, y, output_layer, loss, training_op
+
+	# def get_action(self, state, sess):
+	# 	action_prob_dist = sess.run([])
 
 
 	def train(self, episodes, max_episode_length, sess, env):
