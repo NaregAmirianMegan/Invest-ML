@@ -1,4 +1,4 @@
-import gym, random
+import gym, random, math
 import tensorflow as tf
 import numpy as np
 
@@ -28,73 +28,73 @@ class CircularBuffer:
 		return sample
 
 class PolicyAgent:
-	def __init__(self, hparams):
+	def __init__(self, hparams)
 		self.hparams = hparams
-		self.memory = CircularBuffer(20000)
-		self.x, self.y, self.output_layer, self.loss, self.training_op = self.build_model(hparams)
+		self.x, self.y, self.output, self.loss, self.training_op = self._build_model(hparams)
 
-	def build_model(self, hparams):
-		x = tf.placeholder(tf.float32, [None, hparams['states']])
-		y = tf.placeholder(tf.float32, [hparams['actions']])
+	def _build_model(self, hparams):
+		x = tf.placeholder(tf.float32, [None, hparams['num_inputs']])
+		y = tf.placeholder(tf.float32, [None, hparams['num_actions']])
+		discounted_episode_rewards = tf.placeholder(tf.float32, [None,])
 
 		h1 = tf.layers.dense(x, hparams['n_h1'], activation=tf.nn.relu)
-		h2 = tf.layers.dense(h1, hparams['n_h2'], activation=tf.nn.relu)
-		h3 = tf.layers.dense(h2, hparams['n_h3'], activation=tf.nn.relu)
-		out = tf.layers.dense(h3, hparams['actions'], activation=tf.nn.softmax)
+		output = tf.layers.dense(h1, hparams['num_actions'], activation=tf.nn.softmax)
 
-		mse = tf.losses.mean_squared_error(y, output_layer)
-		loss = tf.reduce_mean(tf.losses.softmax_cross_entropy_with_logits())
+		neg_log_prob = tf.nn.softmax_cross_entropy_with_logits_v2(logits=output, labels=y)
+		loss = tf.reduce_mean(neg_log_prob * discounted_episode_rewards)
 		optimizer = tf.train.AdamOptimizer(learning_rate=hparams['lr'])
 		training_op = optimizer.minimize(loss)
 
-		return x, y, output_layer, loss, training_op
+		return x, y, output, loss, training_op
 
-	# def get_action(self, state, sess):
-	# 	action_prob_dist = sess.run([])
+	def forward(self, state, sess):
+		return sess.run(self.output, feed_dict={self.x: np.reshape(state, (1, self.hparams['num_inputs']))})
 
+	def get_action(self, state, sess):
+		probs = self.forward(state, sess)
+		highest_prob_action = np.random.choice(self.hparams['num_actions'], p=np.squeeze(probs))
+		log_prob = math.log(np.squeeze(probs)[highest_prob_action])
+		return highest_prob_action, log_prob
 
-	def train(self, episodes, max_episode_length, sess, env):
-		max_reward = 0
+	def _get_discounted_rewards(self, rewards):
+		d_rewards = []
+		for i in range(len(rewards)):
+			d_future_r = 0
+			pwr = 0
+			for j in rewards[i:]:
+				d_future_r += (self.hparams['gamma']**pwr) * j
+				pwr += 1
+			d_rewards.append(d_future_r)
+		return d_rewards
 
-		for game in range(episodes):
+	def _normalize(arr):
+		arr = (arr - np.mean(arr))/np.std(arr)
 
-			# total_reward = 0
-			total_discounted_reward = 0
+	def update_policy(self, rewards, log_probs):
+		discounted_rewards = np.array(self._get_discounted_rewards(rewards))
+		discounted_rewards = self._normalize(discounted_rewards)
 
-			env.reset()
-			state = env.step(env.action_space.sample())[0]
-
-			for step in range(max_episode_length):
-				env.render()
-
-				action = self.get_action(state)
+	def train(self, max_episodes, max_episode_len, sess):
+		for episode in range(max_episodes):
+			for step in range(max_episode_len):
 				
-				new_state, reward, done, info = env.step(action)
 
-				log_probs = ???
-				self.memory.append((log_probs, reward))
 
-				total_discounted_reward += self.hparams['discount']**step*reward
 
-				# total_reward += reward
-								
-				if done:
-					break
+	
 
-				state = new_state
+if __name__ = "__main__":
+	env = gym.make('CartPole-v0')
 
-			# if total_reward > max_reward:
-					# max_reward = total_reward
+	hparams = {'num_inputs': env.env.observation_space.shape[0], 
+			   'num_actions': env.env.action_space.n, 
+			   'n_h1': 128, 'lr': 3e-4, 
+			   'gamma': 0.9}
 
-			if game%50 == 0:
-					print("=======================")
-					print("Max Reward:", max_reward)
-		    
-		env.close()
+	agent = PolicyAgent(hparams)
 
-if __name__ == '__main__':
+	with tf.Session() as sess:
+		sess.run(tf.global_variables_initializer())
 
-	env = gym.make('LunarLander-v2')
 
-	num_states = env.env.observation_space.shape[0]
-	num_actions = env.env.action_space.n
+
