@@ -42,6 +42,8 @@ class DQN:
 		self.x, self.y, self.output_layer, self.loss, self.training_op = self.create_model(hparams, 'q-model')
 		self.x_target, self.y_target, self.output_layer_target, self.loss_target, self.training_op_target = self.create_model(hparams, 'target-model')
 
+		self.toggle = False
+
 	def create_model(self, hparams, scope):
 		with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
 			x = tf.placeholder(tf.float32, shape=[None, hparams['n_state_nodes']])
@@ -60,17 +62,18 @@ class DQN:
 
 			return x, y, output_layer, loss, training_op
 
-	# TODO: verify
-	def update_target_model(self, sess):
-		update_weights = [tf.assign(new, old) for (new, old) in zip(tf.trainable_variables('q-model'), tf.trainable_variables('target-model'))]
-		sess.run([update_weights])
-
 	def predict(self, state, sess):
-		return sess.run([self.output_layer], feed_dict={self.x: np.reshape(state, (1, self.hparams['n_state_nodes']))})
+		if self.toggle:
+			return sess.run([self.output_layer_target], feed_dict={self.x_target: np.reshape(state, (1, self.hparams['n_state_nodes']))})
+		else:
+			return sess.run([self.output_layer], feed_dict={self.x: np.reshape(state, (1, self.hparams['n_state_nodes']))})
 
-	# Use target network for predictions
 	def predict_batch(self, states, sess):
-		return sess.run([self.output_layer], feed_dict={self.x: states})
+		if self.toggle:
+			return sess.run([self.output_layer], feed_dict={self.x: states})
+		else:
+			return sess.run([self.output_layer_target], feed_dict={self.x_target: states})
+		
 
 	def get_action(self, state, sess):
 		return np.argmax(self.predict(state, sess))
@@ -100,7 +103,10 @@ class DQN:
 		return loss
 
 	def train_batch(self, x_batch, y_batch, sess):
-		_, curr_loss = sess.run([self.training_op, self.loss], feed_dict={self.x: x_batch, self.y: y_batch})
+		if self.toggle:
+			_, curr_loss = sess.run([self.training_op, self.loss], feed_dict={self.x: x_batch, self.y: y_batch})
+		else:
+			_, curr_loss = sess.run([self.training_op_target, self.loss_target], feed_dict={self.x_target: x_batch, self.y_target: y_batch})
 		return curr_loss
 
 	def train(self, episodes, max_episode_length, sess, env, render_game=False):
@@ -124,23 +130,22 @@ class DQN:
 				else:
 					action = self.get_action(state, sess).item()
 				new_state, reward, done, info = env.step(action)
-				#reward = reward if not done else -reward
 				total_reward += reward
 				self.memory.append((state, action, reward, new_state, done))
 
 				curr_loss = self.update_model(sess)
 								
 				if done:
+					self.toggle = not self.toggle
 					break
 
 				state = new_state
 				self.epsilon = max(self.epsilon * self.e_decay, self.e_baseline)
 
-			#self.update_target_model(sess)
-
 			rewards.append(total_reward)
 			m_avg_reward.append(total_reward)
 			avg_reward = sum(rewards)/len(rewards)
+
 			if total_reward > max_reward:
 					max_reward = total_reward
 
@@ -186,5 +191,5 @@ if __name__ == '__main__':
 	dqn = DQN(hparams)
 	with tf.Session() as sess:
 		sess.run(tf.global_variables_initializer())
-		dqn.train(5000, 5000, sess, env, render_game=True)
+		dqn.train(5000, 5000, sess, env, render_game=False)
 		

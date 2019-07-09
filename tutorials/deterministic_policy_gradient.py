@@ -28,33 +28,24 @@ class CircularBuffer:
 		return sample
 
 class PolicyAgent:
-	def __init__(self, hparams)
+	def __init__(self, hparams):
 		self.hparams = hparams
-		self.x, self.y, self.output, self.loss, self.training_op = self._build_model(hparams)
+		self.x, self.y, self.discounted_rewards, self.output, self.loss, self.training_op = self._build_model(hparams)
 
 	def _build_model(self, hparams):
 		x = tf.placeholder(tf.float32, [None, hparams['num_inputs']])
 		y = tf.placeholder(tf.float32, [None, hparams['num_actions']])
-		discounted_episode_rewards = tf.placeholder(tf.float32, [None,])
+		discounted_rewards = tf.placeholder(tf.float32, [None,])
 
 		h1 = tf.layers.dense(x, hparams['n_h1'], activation=tf.nn.relu)
 		output = tf.layers.dense(h1, hparams['num_actions'], activation=tf.nn.softmax)
 
 		neg_log_prob = tf.nn.softmax_cross_entropy_with_logits_v2(logits=output, labels=y)
-		loss = tf.reduce_mean(neg_log_prob * discounted_episode_rewards)
+		loss = tf.reduce_mean(neg_log_prob * discounted_rewards)
 		optimizer = tf.train.AdamOptimizer(learning_rate=hparams['lr'])
 		training_op = optimizer.minimize(loss)
 
-		return x, y, output, loss, training_op
-
-	def forward(self, state, sess):
-		return sess.run(self.output, feed_dict={self.x: np.reshape(state, (1, self.hparams['num_inputs']))})
-
-	def get_action(self, state, sess):
-		probs = self.forward(state, sess)
-		highest_prob_action = np.random.choice(self.hparams['num_actions'], p=np.squeeze(probs))
-		log_prob = math.log(np.squeeze(probs)[highest_prob_action])
-		return highest_prob_action, log_prob
+		return x, y, discounted_rewards, output, loss, training_op
 
 	def _get_discounted_rewards(self, rewards):
 		d_rewards = []
@@ -67,34 +58,89 @@ class PolicyAgent:
 			d_rewards.append(d_future_r)
 		return d_rewards
 
-	def _normalize(arr):
-		arr = (arr - np.mean(arr))/np.std(arr)
+	def _normalize(self, arr):
+		mean = np.mean(arr)
+		stdev = np.std(arr)
+		return (arr - mean)/stdev
 
-	def update_policy(self, rewards, log_probs):
-		discounted_rewards = np.array(self._get_discounted_rewards(rewards))
-		discounted_rewards = self._normalize(discounted_rewards)
+	def _discount_and_normalize(self, rewards):
+		rewards = np.array(self._get_discounted_rewards(rewards))
+		return self._normalize(rewards)
 
-	def train(self, max_episodes, max_episode_len, sess):
+	def predict(self, state, sess):
+		return sess.run(self.output, feed_dict={self.x: np.reshape(state, (1, self.hparams['num_inputs']))})
+
+	def get_action(self, state, sess):
+		probs = self.predict(state, sess)
+		highest_prob_action = np.random.choice(self.hparams['num_actions'], p=np.squeeze(probs))
+		return highest_prob_action
+
+	
+	def train_batch(self, x_batch, y_batch, discounted_rewards, sess):
+		_, loss = sess.run([self.training_op, self.loss], feed_dict={self.x: x_batch, self.y: y_batch, self.discounted_rewards: discounted_rewards})
+		return loss
+
+	def train(self, max_episodes, max_episode_len, sess, render_game=False):
+		reward_sequence = []
+
 		for episode in range(max_episodes):
-			for step in range(max_episode_len):
-				
+			episode_state_list = []
+			episode_rewards = []
+			episode_action_dists = []
 
+			env.reset()
+			state = env.step(env.action_space.sample())[0]
+
+			for step in range(max_episode_len):
+				if render_game:
+					env.render()
+
+				action = self.get_action(state, sess)
+
+				new_state, reward, done, info = env.step(action)
+
+				action_dist = np.zeros((self.hparams['num_actions']))
+				action_dist[action] = 1
+
+				episode_state_list.append(state)
+				episode_rewards.append(reward)
+				episode_action_dists.append(action_dist)
+
+				if done:
+					reward_sequence.append(sum(episode_rewards))
+					normal_discounted_rewards = self._discount_and_normalize(episode_rewards)
+					x_batch = np.vstack(np.array(episode_state_list))
+					y_batch = np.vstack(np.array(episode_action_dists))
+
+					loss = self.train_batch(x_batch, y_batch, normal_discounted_rewards, sess)
+
+					if episode % 100 == 0:
+						print("GAME", episode, "Avg. R:", sum(reward_sequence[-100:])/100)
+
+					if episode == 3000:
+						print('made it')
+						render_game = True
+
+					break
+
+				state = new_state
 
 
 	
 
-if __name__ = "__main__":
-	env = gym.make('CartPole-v0')
+if __name__ == "__main__":
+	env = gym.make('LunarLander-v2')
 
 	hparams = {'num_inputs': env.env.observation_space.shape[0], 
 			   'num_actions': env.env.action_space.n, 
-			   'n_h1': 128, 'lr': 3e-4, 
-			   'gamma': 0.9}
+			   'n_h1': 128, 'lr': 1e-3, 
+			   'gamma': 0.98}
 
 	agent = PolicyAgent(hparams)
 
 	with tf.Session() as sess:
 		sess.run(tf.global_variables_initializer())
 
+		agent.train(5000, 5000, sess)
 
 
