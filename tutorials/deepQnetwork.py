@@ -63,16 +63,16 @@ class DQN:
 			return x, y, output_layer, loss, training_op
 
 	def predict(self, state, sess):
-		if self.toggle:
-			return sess.run([self.output_layer_target], feed_dict={self.x_target: np.reshape(state, (1, self.hparams['n_state_nodes']))})
-		else:
-			return sess.run([self.output_layer], feed_dict={self.x: np.reshape(state, (1, self.hparams['n_state_nodes']))})
+		# if self.toggle:
+		# 	return sess.run([self.output_layer_target], feed_dict={self.x_target: np.reshape(state, (1, self.hparams['n_state_nodes']))})
+		# else:
+		return sess.run([self.output_layer], feed_dict={self.x: np.reshape(state, (1, self.hparams['n_state_nodes']))})
 
 	def predict_batch(self, states, sess):
-		if self.toggle:
-			return sess.run([self.output_layer], feed_dict={self.x: states})
-		else:
-			return sess.run([self.output_layer_target], feed_dict={self.x_target: states})
+		# if self.toggle:
+		return sess.run([self.output_layer], feed_dict={self.x: states})
+		# else:
+		# 	return sess.run([self.output_layer_target], feed_dict={self.x_target: states})
 		
 
 	def get_action(self, state, sess):
@@ -103,10 +103,10 @@ class DQN:
 		return loss
 
 	def train_batch(self, x_batch, y_batch, sess):
-		if self.toggle:
-			_, curr_loss = sess.run([self.training_op, self.loss], feed_dict={self.x: x_batch, self.y: y_batch})
-		else:
-			_, curr_loss = sess.run([self.training_op_target, self.loss_target], feed_dict={self.x_target: x_batch, self.y_target: y_batch})
+		# if self.toggle:
+		_, curr_loss = sess.run([self.training_op, self.loss], feed_dict={self.x: x_batch, self.y: y_batch})
+		# else:
+		# 	_, curr_loss = sess.run([self.training_op_target, self.loss_target], feed_dict={self.x_target: x_batch, self.y_target: y_batch})
 		return curr_loss
 
 	def train(self, episodes, max_episode_length, sess, env, render_game=False):
@@ -136,7 +136,7 @@ class DQN:
 				curr_loss = self.update_model(sess)
 								
 				if done:
-					self.toggle = not self.toggle
+					#self.toggle = not self.toggle
 					break
 
 				state = new_state
@@ -191,5 +191,5 @@ if __name__ == '__main__':
 	dqn = DQN(hparams)
 	with tf.Session() as sess:
 		sess.run(tf.global_variables_initializer())
-		dqn.train(5000, 5000, sess, env, render_game=False)
+		dqn.train(5000, 5000, sess, env, render_game=True)
 		
