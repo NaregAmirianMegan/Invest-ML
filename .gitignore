@@ -1,5 +1,5 @@
-*/__pycache__/
-*/.DS_Store
+*/__pycache__/*
+*/.DS_Store/*
 src/gym/*
 test/*
-*/.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
