@@ -1,6 +1,10 @@
 import gym, random
 import tensorflow as tf
 import numpy as np
+import matplotlib.pyplot as plt
+
+#local imports
+from dense_nn import _copy_weights, _make_dense_nn_layers
 
 class CircularBuffer:
 	def __init__(self, size):
@@ -39,21 +43,19 @@ class DQN:
 
 		self.batch_size = hparams['batch_size']
 
-		self.x, self.y, self.output_layer, self.loss, self.training_op = self.create_model(hparams, 'q-model')
-		self.x_target, self.y_target, self.output_layer_target, self.loss_target, self.training_op_target = self.create_model(hparams, 'target-model')
+		self.x, self.y, self.output_layer, self.loss, self.training_op = self._create_model(hparams, 'q-model')
+		self.x_target, self.y_target, self.output_layer_target, self.loss_target, self.training_op_target = self._create_model(hparams, 'target-model')
 
-		self.toggle = False
-
-	def create_model(self, hparams, scope):
+	def _create_model(self, hparams, scope):
 		with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
-			x = tf.placeholder(tf.float32, shape=[None, hparams['n_state_nodes']])
-			y = tf.placeholder(tf.float32, shape=[None, hparams['n_actions']])
+			x = tf.placeholder(tf.float32, shape=[None, hparams['n_inputs']])
+			y = tf.placeholder(tf.float32, shape=[None, hparams['n_outputs']])
 
-			hidden_layer_1 = tf.layers.dense(x, hparams['n_h1'], activation=tf.nn.relu)
-			hidden_layer_2 = tf.layers.dense(hidden_layer_1, hparams['n_h2'], activation=tf.nn.relu)
+			hidden_layer_1 = tf.layers.dense(x, hparams['hidden_layers']['n_h1'], kernel_initializer=tf.contrib.layers.xavier_initializer(), activation=tf.nn.relu)
+			hidden_layer_2 = tf.layers.dense(hidden_layer_1, hparams['hidden_layers']['n_h2'], kernel_initializer=tf.contrib.layers.xavier_initializer(), activation=tf.nn.relu)
 			# hidden_layer_3 = tf.layers.dense(hidden_layer_2, hparams['n_h3'], activation=tf.nn.relu)
 			# hidden_layer_4 = tf.layers.dense(hidden_layer_3, hparams['n_h4'], activation=tf.nn.relu)
-			output_layer = tf.layers.dense(hidden_layer_2, hparams['n_actions'])
+			output_layer = tf.layers.dense(hidden_layer_2, hparams['n_outputs'])
 
 			mse = tf.losses.mean_squared_error(y, output_layer)
 			loss = tf.reduce_mean(mse)
@@ -62,18 +64,14 @@ class DQN:
 
 			return x, y, output_layer, loss, training_op
 
+	def _update_target_network(self, sess):
+		_copy_weights("q-model", "target-model", sess)
+
 	def predict(self, state, sess):
-		# if self.toggle:
-		# 	return sess.run([self.output_layer_target], feed_dict={self.x_target: np.reshape(state, (1, self.hparams['n_state_nodes']))})
-		# else:
-		return sess.run([self.output_layer], feed_dict={self.x: np.reshape(state, (1, self.hparams['n_state_nodes']))})
+		return sess.run([self.output_layer], feed_dict={self.x: np.reshape(state, (1, self.hparams['n_inputs']))})
 
 	def predict_batch(self, states, sess):
-		# if self.toggle:
-		return sess.run([self.output_layer], feed_dict={self.x: states})
-		# else:
-		# 	return sess.run([self.output_layer_target], feed_dict={self.x_target: states})
-		
+		return sess.run([self.output_layer_target], feed_dict={self.x_target: states})
 
 	def get_action(self, state, sess):
 		return np.argmax(self.predict(state, sess))
@@ -85,11 +83,11 @@ class DQN:
 		batch = self.memory.random_sample(self.batch_size)
 
 		states = [t[0] for t in batch]
-		new_states = np.array([(np.zeros(self.hparams['n_state_nodes']) if t[3] is None else t[3]) for t in batch])
+		new_states = np.array([(np.zeros(self.hparams['n_inputs']) if t[3] is None else t[3]) for t in batch])
 		q_vals = self.predict_batch(states, sess)[0]
 		new_s_q_vals = self.predict_batch(new_states, sess)[0]
-		x_batch = np.zeros((self.batch_size, self.hparams['n_state_nodes']))
-		y_batch = np.zeros((self.batch_size, self.hparams['n_actions']))
+		x_batch = np.zeros((self.batch_size, self.hparams['n_inputs']))
+		y_batch = np.zeros((self.batch_size, self.hparams['n_outputs']))
 		for i, e in enumerate(batch):
 			state, action, reward, new_state, done = e[0], e[1], e[2], e[3], e[4]
 			current_q = q_vals[i]
@@ -103,10 +101,7 @@ class DQN:
 		return loss
 
 	def train_batch(self, x_batch, y_batch, sess):
-		# if self.toggle:
 		_, curr_loss = sess.run([self.training_op, self.loss], feed_dict={self.x: x_batch, self.y: y_batch})
-		# else:
-		# 	_, curr_loss = sess.run([self.training_op_target, self.loss_target], feed_dict={self.x_target: x_batch, self.y_target: y_batch})
 		return curr_loss
 
 	def train(self, episodes, max_episode_length, sess, env, render_game=False):
@@ -134,9 +129,11 @@ class DQN:
 				self.memory.append((state, action, reward, new_state, done))
 
 				curr_loss = self.update_model(sess)
+
+				if step % 20 == 0:
+					self._update_target_network(sess)
 								
 				if done:
-					#self.toggle = not self.toggle
 					break
 
 				state = new_state
@@ -152,8 +149,13 @@ class DQN:
 			if game%50 == 0:
 					print("=======================")
 					print("GAME", game)
-					print("Loss:", curr_loss, "M Avg. R:", sum(m_avg_reward)/len(m_avg_reward), "Max Reward:", max_reward, "Avg. R:", avg_reward, "Epsilon:", dqn.epsilon)
+					moving_avg = sum(m_avg_reward)/len(m_avg_reward)
+					print("Loss:", curr_loss, "M Avg. R:", moving_avg, "Max Reward:", max_reward, "Avg. R:", avg_reward, "Epsilon:", dqn.epsilon)
 					m_avg_reward = []
+					if moving_avg > 220:
+						plt.plot(rewards)
+						plt.ylabel('Rewards')
+						plt.show()
 
 		games = 10
 		avg_score = self.eval(games, 1000, env)
@@ -186,7 +188,15 @@ if __name__ == '__main__':
 	num_states = env.env.observation_space.shape[0]
 	num_actions = env.env.action_space.n
 
-	hparams = {'n_state_nodes': num_states, 'n_actions': num_actions, 'n_h1': 150, 'n_h2': 120, 'n_h3': 10, 'n_h4': 5, 'lr': 0.001, 'discount_rate': 0.99, 'epsilon': 1, 'e_decay': 0.9996, 'e_baseline': 0.01, 'batch_size': 32}
+	hparams = {'n_inputs': num_states, 
+			   'n_outputs': num_actions, 
+			   'hidden_layers': {'n_h1': 150, 'n_h2': 120},
+			   'lr': 1e-3, 
+			   'discount_rate': 0.99, 
+			   'epsilon': 1, 
+			   'e_decay': 0.9995, 
+			   'e_baseline': 0.01, 
+			   'batch_size': 32}
 
 	dqn = DQN(hparams)
 	with tf.Session() as sess:
