@@ -37,9 +37,9 @@ class PolicyAgent:
 		y = tf.placeholder(tf.float32, [None, hparams['num_actions']])
 		discounted_rewards = tf.placeholder(tf.float32, [None,])
 
-		h1 = tf.layers.dense(x, hparams['n_h1'], activation=tf.nn.relu)
-		h2 = tf.layers.dense(h1, hparams['n_h2'], activation=tf.nn.relu)
-		output = tf.layers.dense(h2, hparams['num_actions'])
+		h1 = tf.layers.dense(x, hparams['n_h1'], activation=tf.nn.tanh)
+		#h2 = tf.layers.dense(h1, hparams['n_h2'], activation=tf.nn.relu)
+		output = tf.layers.dense(h1, hparams['num_actions'])
 
 		sampled_actions = tf.squeeze(tf.multinomial(output, 1))
 
@@ -130,11 +130,11 @@ class PolicyAgent:
 if __name__ == "__main__":
 	env = gym.make('LunarLander-v2')
 
-	hparams = {'num_inputs': env.env.observation_space.shape[0], 
-			   'num_actions': env.env.action_space.n, 
-			   'n_h1': 140, 
-			   'n_h2': 120,
-			   'lr': 1e-3, 
+	hparams = {'num_inputs': env.observation_space.shape[0], 
+			   'num_actions': env.action_space.n, 
+			   'n_h1': 40, 
+			   'n_h2': 20,
+			   'lr': 1e-2, 
 			   'gamma': 0.99}
 
 	agent = PolicyAgent(hparams)
