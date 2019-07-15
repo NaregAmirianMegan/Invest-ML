@@ -182,20 +182,20 @@ class ActorCritic:
 
 if __name__ == '__main__':
 
-	env = gym.make('LunarLanderContinuous-v2')
+	env = gym.make('HandManipulatePen-v0')
 
 	hparams = {
-			   'n_inputs': env.observation_space.shape[0],
+			   'n_inputs': env.observation_space['observation'].shape[0]+env.observation_space['desired_goal'].shape[0]+env.observation_space['achieved_goal'].shape[0],
 			   'n_actions': len(env.action_space.high),
 			   'buffer_size': 1000000,
 			   'batch_size': 64,
 			   'action_bound': env.action_space.high,
-			   'alpha': 0.0001,
-			   'beta': 0.001,
+			   'alpha': 0.00005,
+			   'beta': 0.0005,
 			   'gamma': 0.99,
 			   'tau': 0.001,
 			   'n_h1': 400,
-			   'n_h2': 300,
+			   'n_h2': 200,
 			  }
 	with tf.Session() as sess:
 		agent = ActorCritic(hparams, sess, env)
@@ -204,11 +204,14 @@ if __name__ == '__main__':
 
 		for episode in range(5000):
 			state = env.reset()
+			state = np.concatenate((state['observation'], state['achieved_goal'], state['desired_goal']))
 			done = False
 			episode_reward = 0
 			while not done:
 				action = agent.get_action(state)
 				new_state, reward, done, info = env.step(action)
+
+				new_state = np.concatenate((new_state['observation'], new_state['achieved_goal'], new_state['desired_goal']))
 
 				agent.record(state, action, reward, new_state, int(done))
 				agent.learn()
