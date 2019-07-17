@@ -1,52 +1,69 @@
 import tensorflow as tf
 import numpy as np
 
-class ANN():
-	def __init__(self, hparams):
-		self.hparams = hparams
-		self._build_graph(hparams)
+# Local Imports
+from utils.dense_nn import make_dense_nn
 
-	def _build_graph(self, hparams):
-		self.x = tf.placeholder(tf.float32, shape=(None, hparams['n_input']), name="X")
-		self.y = tf.placeholder(tf.float32, shape=None, name="Y")
+class Vanilla_NN:
+	def __init__(self, n_inputs, n_outputs, h_layer_node_dict, initializer, activation_fn, loss_fn, lr, name, sess):
+		self.n_inputs = n_inputs
+		self.n_outputs = n_outputs
+		self.h_layer_node_dict = h_layer_node_dict
+		self.initializer = initializer
+		self.activation_fn = activation_fn
+		self.loss_fn = loss_fn
+		self.lr = lr
+		self.name = name
+		self.sess = sess
+		self._build_graph()
+		self.sess.run(tf.global_variables_initializer())
+		self.trainable_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
 
-		hidden_layer_1 = tf.layers.dense(self.x, hparams['n_h1'], activation=tf.nn.relu, name="h1")
-		hidden_layer_2 = tf.layers.dense(hidden_layer_1, hparams['n_h2'], activation=tf.nn.relu, name="h2")
-		self.output_layer = tf.layers.dense(hidden_layer_2, hparams['n_output'], name="output")
+	def _build_graph(self):
+		self.x, self.y, self.output, self.loss, self.train_op = \
+		make_dense_nn(scope=self.name, 
+					  n_inputs=self.n_inputs, 
+					  n_outputs=self.n_outputs, 
+					  h_layer_node_dict=self.h_layer_node_dict, 
+					  initializer=self.initializer, 
+					  activation_fn=self.activation_fn, 
+					  loss_fn=self.loss_fn, 
+					  lr=self.lr)
 
-		mse = tf.losses.mean_squared_error(self.y, self.output_layer)
-		self.loss = tf.reduce_mean(mse, name="loss")
-		optimizer = tf.train.AdamOptimizer(learning_rate=self.hparams['lr'])
-		self.training_op = optimizer.minimize(self.loss)
-
-	def _train_step(self, x, y, sess):
-		_, step_loss = sess.run([self.training_op, self.loss], feed_dict={self.x: x, self.y: y})
+	def _train_step(self, x, y):
+		_, step_loss = sess.run([self.train_op, self.loss], feed_dict={self.x: x, self.y: y})
 		return step_loss
 
-	def _get_batch(self, x, y, size=0, no_batch=False):
-		if no_batch:
-			return x, y
+	def predict(self, x):
+		return self.sess.run(self.output, feed_dict={self.x: x})
 
-	def train(self, x, y, sess, verbose=False):
-		for step in range(self.hparams['training_steps']):
-			batch_x, batch_y = self._get_batch(x, y, no_batch=True)
-			step_loss = self._train_step(batch_x, batch_y, sess)
+	def train(self, x, y, train_steps, verbose=False, batching_fn=lambda x, y, batch_size: (x, y), batch_size=None, prog_freq=100):
+		for step in range(train_steps):
+			batch_x, batch_y = batching_fn(x, y, batch_size)
+			step_loss = self._train_step(batch_x, batch_y)
 			if verbose:
-				if step % (self.hparams['training_steps']/1000):
+				if step % prog_freq:
 					print("Loss:", step_loss)
-					print(self.predict(batch_x, sess))
-
-	def predict(self, x_data, sess):
-		return sess.run(self.output_layer, feed_dict={self.x: x_data})
-
 
 if __name__ == '__main__':
 	x_data = np.array([[0, 0], [1, 0], [0, 1], [1, 1]], dtype='float32')
 	y_data = np.array([[0], [1], [1], [0]], dtype='float32')
 
-	hparams = {'n_input': 2, 'n_h1': 10, 'n_h2': 5, 'n_output': 1, 'lr': 0.0001, 'training_steps': 10000}
-	ann = ANN(hparams)
+	
 
 	with tf.Session() as sess:
-		sess.run(tf.global_variables_initializer())
-		ann.train(x_data, y_data, sess, verbose=True)
+		network = Vanilla_NN(2, 1, {'hidden_1': 10}, tf.contrib.layers.xavier_initializer(),
+						 tf.nn.relu, tf.losses.mean_squared_error, 1e-3, 'network', sess)
+		network.train(x_data, y_data, 10000, verbose=True)
+
+
+
+
+
+
+
+
+
+
+
+
