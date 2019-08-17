@@ -99,6 +99,29 @@ class DQN:
 				 activation_fn, loss_fn, lr, discount_rate, epsilon, e_decay, 
 				 e_baseline, mem_size, name, sess):
 
+	"""
+		Instantiates deep q network.
+
+		Args:
+			n_inputs - number of input nodes
+			n_outputs - number of ouptput nodes
+			h_layer_node_dict - dictionary of form: {"<layer_name>": <nodes_in_layer>, ...}
+			initializer - function to initialize weights
+			activation_fn - activation functions for layers
+			loss_fn - loss function for network
+			lr - learning rate of layers
+			discount_rate - fraction by which future rewards are discounted
+			epsilon - probability of choosing random action
+			e_decay - decrease probability of choosing random action at this rate
+			e_baseline - baseline for epsilon
+			mem_size - size of replay buffer
+			name - name of scope in which to define graph
+			sess - tensorflow session in which to run the graph
+
+		Returns:
+			DQN object
+	"""
+
 		self.n_inputs = n_inputs
 		self.n_outputs = n_outputs
 		self.h_layer_node_dict = h_layer_node_dict
